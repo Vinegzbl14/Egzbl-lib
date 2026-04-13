@@ -1,0 +1,136 @@
+--// Centing Library --// Mobile + PC Draggable UI Library
+
+local Centing = {}
+
+local TweenService = game:GetService("TweenService") local UserInputService = game:GetService("UserInputService")
+
+function Centing:CreateWindow(title) local ScreenGui = Instance.new("ScreenGui") local Main = Instance.new("Frame") local Top = Instance.new("Frame") local Title = Instance.new("TextLabel") local Content = Instance.new("Frame") local UIList = Instance.new("UIListLayout")
+
+ScreenGui.Parent = game.CoreGui
+ScreenGui.Name = "CentingUI"
+
+Main.Size = UDim2.new(0, 450, 0, 320)
+Main.Position = UDim2.new(0.5, -225, 0.5, -160)
+Main.BackgroundColor3 = Color3.fromRGB(25,25,25)
+Main.BorderSizePixel = 0
+Main.Parent = ScreenGui
+
+Top.Size = UDim2.new(1,0,0,40)
+Top.BackgroundColor3 = Color3.fromRGB(35,35,35)
+Top.Parent = Main
+
+Title.Size = UDim2.new(1,0,1,0)
+Title.Text = title or "Centing Library"
+Title.TextColor3 = Color3.new(1,1,1)
+Title.BackgroundTransparency = 1
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 16
+Title.Parent = Top
+
+Content.Size = UDim2.new(1,0,1,-40)
+Content.Position = UDim2.new(0,0,0,40)
+Content.BackgroundTransparency = 1
+Content.Parent = Main
+
+UIList.Padding = UDim.new(0,6)
+UIList.Parent = Content
+
+-- MOBILE + PC DRAG SYSTEM
+local dragging = false
+local dragStart
+local startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    Main.Position = UDim2.new(
+        startPos.X.Scale,
+        startPos.X.Offset + delta.X,
+        startPos.Y.Scale,
+        startPos.Y.Offset + delta.Y
+    )
+end
+
+Top.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+
+        dragging = true
+        dragStart = input.Position
+        startPos = Main.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (
+        input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch
+    ) then
+        update(input)
+    end
+end)
+
+local Window = {}
+
+function Window:CreateButton(text, callback)
+    local Button = Instance.new("TextButton")
+
+    Button.Size = UDim2.new(1, -10, 0, 40)
+    Button.BackgroundColor3 = Color3.fromRGB(40,40,40)
+    Button.Text = text
+    Button.TextColor3 = Color3.new(1,1,1)
+    Button.Font = Enum.Font.Gotham
+    Button.TextSize = 14
+    Button.Parent = Content
+
+    Button.MouseButton1Click:Connect(function()
+        TweenService:Create(Button, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(70,70,70)}):Play()
+        task.wait(0.1)
+        TweenService:Create(Button, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(40,40,40)}):Play()
+        if callback then callback() end
+    end)
+end
+
+function Window:CreateToggle(text, callback)
+    local Toggle = Instance.new("TextButton")
+    local state = false
+
+    Toggle.Size = UDim2.new(1, -10, 0, 40)
+    Toggle.BackgroundColor3 = Color3.fromRGB(40,40,40)
+    Toggle.Text = text .. " : OFF"
+    Toggle.TextColor3 = Color3.new(1,1,1)
+    Toggle.Font = Enum.Font.Gotham
+    Toggle.TextSize = 14
+    Toggle.Parent = Content
+
+    Toggle.MouseButton1Click:Connect(function()
+        state = not state
+        Toggle.Text = text .. (state and " : ON" or " : OFF")
+        if callback then callback(state) end
+    end)
+end
+
+function Window:CreateLabel(text)
+    local Label = Instance.new("TextLabel")
+
+    Label.Size = UDim2.new(1, -10, 0, 30)
+    Label.BackgroundTransparency = 1
+    Label.Text = text
+    Label.TextColor3 = Color3.fromRGB(200,200,200)
+    Label.Font = Enum.Font.Gotham
+    Label.TextSize = 13
+    Label.Parent = Content
+end
+
+return Window
+
+end
+
+return Centing
+
+--// READY NA TO SA MOBILE + PC 🔥
