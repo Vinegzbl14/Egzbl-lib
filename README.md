@@ -1,0 +1,2 @@
+# Egzbl-lib
+Library script 
