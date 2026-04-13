@@ -1,59 +1,76 @@
---// Centing Library --// Mobile + PC Draggable UI Library
+--// Centing Library V5 (FINAL 🔥 Scrollable + Tabs + Minimize + Rainbow + Switch + Notif)
+
+local Players = game:GetService("Players") local TweenService = game:GetService("TweenService") local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
 
 local Centing = {}
 
-local TweenService = game:GetService("TweenService") local UserInputService = game:GetService("UserInputService")
+-- 🌈 Rainbow shadow local function rainbow(obj) task.spawn(function() while true do for i = 0,1,0.01 do obj.BackgroundColor3 = Color3.fromHSV(i,1,1) task.wait(0.03) end end end) end
 
-function Centing:CreateWindow(title) local ScreenGui = Instance.new("ScreenGui") local Main = Instance.new("Frame") local Top = Instance.new("Frame") local Title = Instance.new("TextLabel") local Content = Instance.new("Frame") local UIList = Instance.new("UIListLayout")
+-- 🔔 Notification function Centing:Notify(text) local ScreenGui = LocalPlayer.PlayerGui:FindFirstChild("CentingUI") if not ScreenGui then return end
 
-ScreenGui.Parent = game.CoreGui
-ScreenGui.Name = "CentingUI"
+local Notif = Instance.new("TextLabel", ScreenGui)
+Notif.Size = UDim2.new(0,200,0,40)
+Notif.Position = UDim2.new(1,-210,1,-60)
+Notif.BackgroundColor3 = Color3.fromRGB(0,0,0)
+Notif.TextColor3 = Color3.new(1,1,1)
+Notif.Text = text
+Notif.TextSize = 14
 
-Main.Size = UDim2.new(0, 450, 0, 320)
-Main.Position = UDim2.new(0.5, -225, 0.5, -160)
-Main.BackgroundColor3 = Color3.fromRGB(25,25,25)
-Main.BorderSizePixel = 0
-Main.Parent = ScreenGui
+Instance.new("UICorner", Notif)
 
-Top.Size = UDim2.new(1,0,0,40)
-Top.BackgroundColor3 = Color3.fromRGB(35,35,35)
-Top.Parent = Main
+TweenService:Create(Notif, TweenInfo.new(0.3), {Position = UDim2.new(1,-210,1,-100)}):Play()
+task.wait(2)
+Notif:Destroy()
 
-Title.Size = UDim2.new(1,0,1,0)
-Title.Text = title or "Centing Library"
-Title.TextColor3 = Color3.new(1,1,1)
-Title.BackgroundTransparency = 1
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 16
-Title.Parent = Top
-
-Content.Size = UDim2.new(1,0,1,-40)
-Content.Position = UDim2.new(0,0,0,40)
-Content.BackgroundTransparency = 1
-Content.Parent = Main
-
-UIList.Padding = UDim.new(0,6)
-UIList.Parent = Content
-
--- MOBILE + PC DRAG SYSTEM
-local dragging = false
-local dragStart
-local startPos
-
-local function update(input)
-    local delta = input.Position - dragStart
-    Main.Position = UDim2.new(
-        startPos.X.Scale,
-        startPos.X.Offset + delta.X,
-        startPos.Y.Scale,
-        startPos.Y.Offset + delta.Y
-    )
 end
 
-Top.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-    or input.UserInputType == Enum.UserInputType.Touch then
+function Centing:CreateWindow(title) local ScreenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui")) ScreenGui.Name = "CentingUI" ScreenGui.ResetOnSpawn = false
 
+local Main = Instance.new("Frame", ScreenGui)
+Main.Size = UDim2.new(0,300,0,220)
+Main.Position = UDim2.new(0.35,0,0.35,0)
+Main.BackgroundColor3 = Color3.fromRGB(255,0,0)
+Main.BackgroundTransparency = 0.05
+Main.Active = true
+
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0,12)
+
+-- shadow
+local Shadow = Instance.new("Frame", Main)
+Shadow.Size = UDim2.new(1,10,1,10)
+Shadow.Position = UDim2.new(0,5,0,5)
+Shadow.BackgroundTransparency = 0.8
+Shadow.ZIndex = 0
+Instance.new("UICorner", Shadow).CornerRadius = UDim.new(0,12)
+rainbow(Shadow)
+
+-- title
+local Title = Instance.new("TextLabel", Main)
+Title.Text = title or "CENTING"
+Title.Size = UDim2.new(1,0,0,30)
+Title.Position = UDim2.new(0,0,0,5)
+Title.BackgroundColor3 = Color3.fromRGB(0,0,0)
+Title.TextColor3 = Color3.new(1,1,1)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 18
+Instance.new("UICorner", Title)
+
+-- minimize
+local MinBtn = Instance.new("TextButton", Main)
+MinBtn.Size = UDim2.new(0,30,0,30)
+MinBtn.Position = UDim2.new(1,-35,0,5)
+MinBtn.Text = "-"
+MinBtn.BackgroundColor3 = Color3.fromRGB(0,0,0)
+MinBtn.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", MinBtn)
+
+-- drag
+local dragging, dragStart, startPos
+
+Title.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragging = true
         dragStart = input.Position
         startPos = Main.Position
@@ -67,65 +84,139 @@ Top.InputBegan:Connect(function(input)
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-    if dragging and (
-        input.UserInputType == Enum.UserInputType.MouseMovement
-        or input.UserInputType == Enum.UserInputType.Touch
-    ) then
-        update(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
 end)
 
+-- tabs
+local TabContainer = Instance.new("ScrollingFrame", Main)
+TabContainer.Size = UDim2.new(1,0,0,40)
+TabContainer.Position = UDim2.new(0,0,0,40)
+TabContainer.BackgroundColor3 = Color3.fromRGB(30,30,30)
+TabContainer.CanvasSize = UDim2.new(0,600,0,0)
+TabContainer.ScrollingDirection = Enum.ScrollingDirection.X
+Instance.new("UICorner", TabContainer)
+
+local layout = Instance.new("UIListLayout", TabContainer)
+layout.FillDirection = Enum.FillDirection.Horizontal
+layout.Padding = UDim.new(0,10)
+
+local Pages = {}
+
 local Window = {}
 
-function Window:CreateButton(text, callback)
-    local Button = Instance.new("TextButton")
+function Window:CreateTab(name)
+    local TabBtn = Instance.new("TextButton", TabContainer)
+    TabBtn.Size = UDim2.new(0,120,0,40)
+    TabBtn.Text = name
+    TabBtn.BackgroundColor3 = Color3.fromRGB(255,0,0)
+    TabBtn.TextColor3 = Color3.new(1,1,1)
+    TabBtn.Font = Enum.Font.GothamBold
+    Instance.new("UICorner", TabBtn)
 
-    Button.Size = UDim2.new(1, -10, 0, 40)
-    Button.BackgroundColor3 = Color3.fromRGB(40,40,40)
-    Button.Text = text
-    Button.TextColor3 = Color3.new(1,1,1)
-    Button.Font = Enum.Font.Gotham
-    Button.TextSize = 14
-    Button.Parent = Content
+    -- 📜 SCROLLABLE PAGE
+    local Page = Instance.new("ScrollingFrame", Main)
+    Page.Size = UDim2.new(1,0,1,-80)
+    Page.Position = UDim2.new(0,0,0,80)
+    Page.BackgroundColor3 = Color3.fromRGB(0,0,0)
+    Page.BackgroundTransparency = 0.1
+    Page.Visible = false
+    Page.CanvasSize = UDim2.new(0,0,0,0)
+    Page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    Instance.new("UICorner", Page)
 
-    Button.MouseButton1Click:Connect(function()
-        TweenService:Create(Button, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(70,70,70)}):Play()
-        task.wait(0.1)
-        TweenService:Create(Button, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(40,40,40)}):Play()
-        if callback then callback() end
+    local list = Instance.new("UIListLayout", Page)
+    list.Padding = UDim.new(0,6)
+
+    table.insert(Pages, Page)
+
+    TabBtn.MouseButton1Click:Connect(function()
+        for _,p in pairs(Pages) do p.Visible = false end
+        Page.Visible = true
     end)
+
+    local Tab = {}
+
+    function Tab:CreateButton(text, callback)
+        local Btn = Instance.new("TextButton", Page)
+        Btn.Size = UDim2.new(1,-10,0,35)
+        Btn.Text = text
+        Btn.BackgroundColor3 = Color3.fromRGB(40,40,40)
+        Btn.TextColor3 = Color3.new(1,1,1)
+        Instance.new("UICorner", Btn)
+
+        Btn.MouseButton1Click:Connect(function()
+            if callback then callback() end
+        end)
+    end
+
+    -- 🔘 SWITCH TOGGLE (UI style)
+    function Tab:CreateSwitch(text, callback)
+        local Frame = Instance.new("Frame", Page)
+        Frame.Size = UDim2.new(1,-10,0,35)
+        Frame.BackgroundColor3 = Color3.fromRGB(40,40,40)
+        Instance.new("UICorner", Frame)
+
+        local Label = Instance.new("TextLabel", Frame)
+        Label.Size = UDim2.new(0.7,0,1,0)
+        Label.BackgroundTransparency = 1
+        Label.Text = text
+        Label.TextColor3 = Color3.new(1,1,1)
+
+        local Toggle = Instance.new("Frame", Frame)
+        Toggle.Size = UDim2.new(0,40,0,20)
+        Toggle.Position = UDim2.new(1,-50,0.5,-10)
+        Toggle.BackgroundColor3 = Color3.fromRGB(80,80,80)
+        Instance.new("UICorner", Toggle)
+
+        local Circle = Instance.new("Frame", Toggle)
+        Circle.Size = UDim2.new(0,18,0,18)
+        Circle.Position = UDim2.new(0,1,0,1)
+        Circle.BackgroundColor3 = Color3.new(1,1,1)
+        Instance.new("UICorner", Circle)
+
+        local state = false
+
+        Frame.InputBegan:Connect(function()
+            state = not state
+            TweenService:Create(Circle, TweenInfo.new(0.2), {
+                Position = state and UDim2.new(1,-19,0,1) or UDim2.new(0,1,0,1)
+            }):Play()
+
+            Toggle.BackgroundColor3 = state and Color3.fromRGB(0,170,0) or Color3.fromRGB(80,80,80)
+            if callback then callback(state) end
+        end)
+    end
+
+    function Tab:CreateBox()
+        local Box = Instance.new("TextBox", Page)
+        Box.Size = UDim2.new(1,-10,0,30)
+        Box.BackgroundColor3 = Color3.fromRGB(20,20,20)
+        Box.TextColor3 = Color3.new(1,1,1)
+        Instance.new("UICorner", Box)
+        return Box
+    end
+
+    return Tab
 end
 
-function Window:CreateToggle(text, callback)
-    local Toggle = Instance.new("TextButton")
-    local state = false
-
-    Toggle.Size = UDim2.new(1, -10, 0, 40)
-    Toggle.BackgroundColor3 = Color3.fromRGB(40,40,40)
-    Toggle.Text = text .. " : OFF"
-    Toggle.TextColor3 = Color3.new(1,1,1)
-    Toggle.Font = Enum.Font.Gotham
-    Toggle.TextSize = 14
-    Toggle.Parent = Content
-
-    Toggle.MouseButton1Click:Connect(function()
-        state = not state
-        Toggle.Text = text .. (state and " : ON" or " : OFF")
-        if callback then callback(state) end
-    end)
-end
-
-function Window:CreateLabel(text)
-    local Label = Instance.new("TextLabel")
-
-    Label.Size = UDim2.new(1, -10, 0, 30)
-    Label.BackgroundTransparency = 1
-    Label.Text = text
-    Label.TextColor3 = Color3.fromRGB(200,200,200)
-    Label.Font = Enum.Font.Gotham
-    Label.TextSize = 13
-    Label.Parent = Content
-end
+-- minimize logic
+local minimized = false
+MinBtn.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    if minimized then
+        MinBtn.Text = "+"
+        TabContainer.Visible = false
+        for _,p in pairs(Pages) do p.Visible = false end
+        TweenService:Create(Main, TweenInfo.new(0.2), {Size = UDim2.new(0,300,0,50)}):Play()
+    else
+        MinBtn.Text = "-"
+        TabContainer.Visible = true
+        TweenService:Create(Main, TweenInfo.new(0.2), {Size = UDim2.new(0,300,0,220)}):Play()
+    end
+end)
 
 return Window
 
@@ -133,4 +224,4 @@ end
 
 return Centing
 
---// READY NA TO SA MOBILE + PC 🔥
+--// FINAL NA TO 🔥 READY TO UPLOAD 🚀
