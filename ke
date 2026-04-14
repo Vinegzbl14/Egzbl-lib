@@ -1,0 +1,806 @@
+local CentingUI = {}
+CentingUI.__index = CentingUI
+
+local Players          = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService     = game:GetService("TweenService")
+local CoreGui          = game:GetService("CoreGui")
+local Lighting         = game:GetService("Lighting")
+
+local Player = Players.LocalPlayer
+
+local Theme = {
+    BgDark        = Color3.fromRGB(14,14,20),
+    BgSurface     = Color3.fromRGB(20,20,30),
+    BgTab         = Color3.fromRGB(17,17,26),
+    BgElement     = Color3.fromRGB(24,24,36),
+    BgInput       = Color3.fromRGB(12,12,18),
+    Border        = Color3.fromRGB(35,35,50),
+    TextMain      = Color3.fromRGB(225,225,235),
+    TextDim       = Color3.fromRGB(120,120,145),
+    ToggleOff     = Color3.fromRGB(45,45,60),
+    BtnIdle       = Color3.fromRGB(30,30,44),
+    BtnHover      = Color3.fromRGB(40,40,56),
+    SliderTrack   = Color3.fromRGB(38,38,52),
+    White         = Color3.fromRGB(255,255,255),
+    CloseRed      = Color3.fromRGB(200,45,45),
+    CloseRedHover = Color3.fromRGB(230,60,60),
+    Success       = Color3.fromRGB(40,200,120),
+    Warning       = Color3.fromRGB(255,180,40),
+    Error         = Color3.fromRGB(255,70,70),
+}
+
+local FontMain = Enum.Font.GothamBold
+local FontSub  = Enum.Font.GothamMedium
+local FontCode = Enum.Font.Gotham
+
+local function Make(class, props, parent)
+    local inst = Instance.new(class)
+    for k,v in pairs(props or {}) do
+        if k~="Parent" then inst[k]=v end
+    end
+    if parent then inst.Parent=parent end
+    return inst
+end
+
+local function AddCorner(inst, r)
+    return Make("UICorner",{CornerRadius=UDim.new(0,r or 8)},inst)
+end
+
+local function AddStroke(inst, c, t)
+    return Make("UIStroke",{Color=c or Theme.Border,Thickness=t or 1,Transparency=0.5},inst)
+end
+
+local function QT(inst, props, dur, style, dir)
+    return TweenService:Create(inst, TweenInfo.new(dur or 0.25, style or Enum.EasingStyle.Quint, dir or Enum.EasingDirection.Out), props)
+end
+
+local function LerpColor(c1,c2,t)
+    return Color3.new(c1.R+(c2.R-c1.R)*t, c1.G+(c2.G-c1.G)*t, c1.B+(c2.B-c1.B)*t)
+end
+
+function CentingUI.new(opts)
+    opts = opts or {}
+    local self = setmetatable({}, CentingUI)
+    self.Name = opts.Name or "Centing UI"
+    self.Accent = opts.Accent or Color3.fromRGB(0,190,255)
+    self.Tabs = {}
+    self.CurrentTab = nil
+    self.Notifications = {}
+    self.IsMinimized = false
+    self.IsOpen = true
+    self:_Build()
+    return self
+end
+
+function CentingUI:_Build()
+    self.Gui = Make("ScreenGui",{
+        Name="CentingUI_"..self.Name,
+        ZIndexBehavior=Enum.ZIndexBehavior.Sibling,
+        ResetOnSpawn=false, IgnoreGuiInset=true,
+    }, CoreGui)
+
+    self.Blur = Make("BlurEffect",{Size=0,Name="UIBlur"}, Lighting)
+
+    self.Frame = Make("Frame",{
+        Name="Main", Size=UDim2.new(0,520,0,400),
+        Position=UDim2.new(0.5,-260,0.5,-200),
+        BackgroundColor3=Theme.BgDark, BorderSizePixel=0,
+        ClipsDescendants=true,
+    }, self.Gui)
+    AddCorner(self.Frame, 14)
+    AddStroke(self.Frame, Theme.Border, 1)
+
+    -- accent bar top
+    self.AccentBar = Make("Frame",{
+        Size=UDim2.new(1,0,0,3),BackgroundColor3=self.Accent,
+        BorderSizePixel=0,ZIndex=20,
+    }, self.Frame)
+    AddCorner(self.AccentBar, 14)
+    Make("Frame",{
+        Size=UDim2.new(1,0,0,14),Position=UDim2.new(0,0,1,-14),
+        BackgroundColor3=self.Accent,BorderSizePixel=0,ZIndex=19,
+    }, self.AccentBar)
+
+    -- title bar
+    self.TitleBar = Make("Frame",{
+        Name="TitleBar",Size=UDim2.new(1,0,0,42),
+        BackgroundColor3=Theme.BgSurface,BorderSizePixel=0,ZIndex=5,
+    }, self.Frame)
+    AddCorner(self.TitleBar, 14)
+    Make("Frame",{
+        Size=UDim2.new(1,0,0,14),Position=UDim2.new(0,0,1,-14),
+        BackgroundColor3=Theme.BgSurface,BorderSizePixel=0,ZIndex=4,
+    }, self.TitleBar)
+
+    -- dot
+    Make("Frame",{
+        Size=UDim2.new(0,8,0,8),Position=UDim2.new(0,14,0.5,-4),
+        BackgroundColor3=self.Accent,BorderSizePixel=0,ZIndex=6,
+    }, self.TitleBar)
+
+    -- title text
+    Make("TextLabel",{
+        Size=UDim2.new(1,-160,1,0),Position=UDim2.new(0,30,0,0),
+        BackgroundTransparency=1,Text=self.Name,
+        TextColor3=self.Accent,TextSize=13,Font=FontMain,
+        TextXAlignment=Enum.TextXAlignment.Left,ZIndex=6,
+    }, self.TitleBar)
+end
+
+function CentingUI:_BuildButtons()
+    -- minimize btn
+    self.MinBtn = Make("TextButton",{
+        Size=UDim2.new(0,28,0,28),Position=UDim2.new(1,-66,0.5,-14),
+        BackgroundColor3=Theme.BtnIdle,BorderSizePixel=0,
+        Text="—",TextColor3=Theme.TextDim,TextSize=14,Font=FontMain,
+        AutoButtonColor=false,ZIndex=7,
+    }, self.TitleBar)
+    AddCorner(self.MinBtn, 6)
+
+    self.MinBtn.MouseEnter:Connect(function()
+        QT(self.MinBtn,{BackgroundColor3=Theme.BtnHover,TextColor3=Theme.TextMain},0.15):Play()
+    end)
+    self.MinBtn.MouseLeave:Connect(function()
+        QT(self.MinBtn,{BackgroundColor3=Theme.BtnIdle,TextColor3=Theme.TextDim},0.15):Play()
+    end)
+    self.MinBtn.MouseButton1Click:Connect(function() self:ToggleMinimize() end)
+
+    -- close btn
+    self.CloseBtn = Make("TextButton",{
+        Size=UDim2.new(0,28,0,28),Position=UDim2.new(1,-32,0.5,-14),
+        BackgroundColor3=Theme.CloseRed,BorderSizePixel=0,
+        Text="×",TextColor3=Theme.White,TextSize=16,Font=FontMain,
+        AutoButtonColor=false,ZIndex=7,
+    }, self.TitleBar)
+    AddCorner(self.CloseBtn, 6)
+
+    self.CloseBtn.MouseEnter:Connect(function()
+        QT(self.CloseBtn,{BackgroundColor3=Theme.CloseRedHover},0.15):Play()
+    end)
+    self.CloseBtn.MouseLeave:Connect(function()
+        QT(self.CloseBtn,{BackgroundColor3=Theme.CloseRed},0.15):Play()
+    end)
+    self.CloseBtn.MouseButton1Click:Connect(function() self:Close() end)
+end
+
+function CentingUI:_BuildTabBar()
+    self.TabBarFrame = Make("Frame",{
+        Name="TabBar",Size=UDim2.new(1,0,0,40),
+        Position=UDim2.new(0,0,0,42),
+        BackgroundColor3=Theme.BgTab,BorderSizePixel=0,ZIndex=3,
+    }, self.Frame)
+    Make("Frame",{
+        Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),
+        BackgroundColor3=Theme.Border,BorderSizePixel=0,ZIndex=4,
+    }, self.TabBarFrame)
+
+    self.TabScroll = Make("ScrollingFrame",{
+        Size=UDim2.new(1,-8,1,-6),Position=UDim2.new(0,4,0,3),
+        BackgroundTransparency=1,BorderSizePixel=0,
+        ScrollBarThickness=0,ScrollBarImageTransparency=1,
+        CanvasSize=UDim2.new(0,0,0,0),
+        AutomaticCanvasSize=Enum.AutomaticSize.X,ZIndex=5,
+    }, self.TabBarFrame)
+    Make("UIListLayout",{Padding=UDim.new(0,4),FillDirection=Enum.FillDirection.Horizontal,SortOrder=Enum.SortOrder.LayoutOrder}, self.TabScroll)
+    Make("UIPadding",{PaddingLeft=UDim.new(0,6),PaddingRight=UDim.new(0,6)}, self.TabScroll)
+end
+
+function CentingUI:_BuildContent()
+    self.ContentArea = Make("Frame",{
+        Name="ContentArea",Size=UDim2.new(1,0,1,-82),
+        Position=UDim2.new(0,0,0,82),
+        BackgroundTransparency=1,BorderSizePixel=0,
+        ClipsDescendants=true,ZIndex=2,
+    }, self.Frame)
+end
+
+function CentingUI:_SetupDrag()
+    local dragging, dragInput = false, nil
+    local startPos, startPosFrame
+
+    self.TitleBar.InputBegan:Connect(function(input)
+        if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
+            dragging=true
+            startPos=input.Position
+            startPosFrame=self.Frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState==Enum.UserInputState.End then dragging=false end
+            end)
+        end
+    end)
+
+    self.TitleBar.InputChanged:Connect(function(input)
+        if input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch then
+            dragInput=input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input==dragInput and dragging then
+            local delta=input.Position-startPos
+            self.Frame.Position=UDim2.new(
+                startPosFrame.X.Scale, startPosFrame.X.Offset+delta.X,
+                startPosFrame.Y.Scale, startPosFrame.Y.Offset+delta.Y
+            )
+        end
+    end)
+end
+
+function CentingUI:ToggleMinimize()
+    self.IsMinimized = not self.IsMinimized
+    local target = self.IsMinimized and UDim2.new(0,520,0,42) or UDim2.new(0,520,0,400)
+    QT(self.Frame,{Size=target},0.35):Play()
+end
+
+function CentingUI:Close()
+    self.IsOpen = false
+    QT(self.Blur,{Size=0},0.3):Play()
+    QT(self.Frame,{Size=UDim2.new(0,520,0,0),BackgroundTransparency=1},0.35,Enum.EasingStyle.Back,Enum.EasingDirection.In):Play()
+    task.delay(0.35, function() self.Gui.Enabled=false end)
+end
+
+function CentingUI:Open()
+    if self.IsOpen then return end
+    self.IsOpen = true
+    self.Gui.Enabled = true
+    self.Frame.Size = UDim2.new(0,520,0,0)
+    self.Frame.BackgroundTransparency = 1
+    QT(self.Blur,{Size=18},0.4):Play()
+    QT(self.Frame,{Size=UDim2.new(0,520,0,400),BackgroundTransparency=0},0.45,Enum.EasingStyle.Back,Enum.EasingDirection.Out):Play()
+end
+
+function CentingUI:Toggle()
+    if self.IsOpen then self:Close() else self:Open() end
+end
+
+function CentingUI:SetToggleKey(keyCode)
+    UserInputService.InputBegan:Connect(function(input, processed)
+        if processed then return end
+        if input.KeyCode==keyCode then self:Toggle() end
+    end)
+end
+
+-- TAB SYSTEM
+function CentingUI:AddTab(name)
+    local tab = {Name=name, Elements={}}
+
+    local btn = Make("TextButton",{
+        Name=name,Size=UDim2.new(0,90,0,30),
+        BackgroundColor3=Theme.BtnIdle,BorderSizePixel=0,
+        Text=name,TextColor3=Theme.TextDim,TextSize=11,Font=FontMain,
+        AutoButtonColor=false,ZIndex=6,
+    }, self.TabScroll)
+    AddCorner(btn, 7)
+
+    btn.MouseEnter:Connect(function()
+        if self.CurrentTab~=name then QT(btn,{BackgroundColor3=Theme.BtnHover},0.15):Play() end
+    end)
+    btn.MouseLeave:Connect(function()
+        if self.CurrentTab~=name then QT(btn,{BackgroundColor3=Theme.BtnIdle},0.15):Play() end
+    end)
+    btn.MouseButton1Click:Connect(function() self:SelectTab(name) end)
+
+    local container = Make("ScrollingFrame",{
+        Name=name.."_Content",Size=UDim2.new(1,0,1,0),
+        BackgroundTransparency=1,BorderSizePixel=0,
+        ScrollBarThickness=3,ScrollBarImageColor3=self.Accent,ScrollBarImageTransparency=0.4,
+        CanvasSize=UDim2.new(0,0,0,0),AutomaticCanvasSize=Enum.AutomaticSize.Y,
+        Visible=false,ZIndex=2,
+    }, self.ContentArea)
+    Make("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder}, container)
+    Make("UIPadding",{PaddingTop=UDim.new(0,10),PaddingBottom=UDim.new(0,16),PaddingLeft=UDim.new(0,14),PaddingRight=UDim.new(0,14)}, container)
+
+    tab.Button = btn
+    tab.Container = container
+    self.Tabs[name] = tab
+
+    if not self.CurrentTab then self:SelectTab(name) end
+    return name
+end
+
+function CentingUI:SelectTab(name)
+    local tab = self.Tabs[name]
+    if not tab then return end
+    for n,t in pairs(self.Tabs) do
+        t.Container.Visible = false
+        QT(t.Button,{BackgroundColor3=Theme.BtnIdle,TextColor3=Theme.TextDim},0.2):Play()
+    end
+    tab.Container.Visible = true
+    QT(tab.Button,{BackgroundColor3=self.Accent,TextColor3=Color3.fromRGB(8,8,14)},0.25):Play()
+    self.CurrentTab = name
+end
+
+function CentingUI:_AddElement(tab
+
+function CentingUI:AddLabel(tabName, text)
+    local tab = self.Tabs[tabName]
+    if not tab then return nil end
+    local label = Make("TextLabel",{
+        Size=UDim2.new(1,0,0,18),BackgroundTransparency=1,
+        Text=text or "Label",TextColor3=Theme.TextDim,TextSize=11,
+        Font=FontSub,TextXAlignment=Enum.TextXAlignment.Left,
+    }, tab.Container)
+    return self:_AddElement(tabName,{Type="Label",Instance=label})
+end
+
+function CentingUI:AddSection(tabName, text)
+    local tab = self.Tabs[tabName]
+    if not tab then return nil end
+    local frame = Make("Frame",{Size=UDim2.new(1,0,0,24),BackgroundTransparency=1}, tab.Container)
+    Make("TextLabel",{
+        Size=UDim2.new(1,-8,0,18),Position=UDim2.new(0,0,0,3),
+        BackgroundTransparency=1,Text=text or "Section",
+        TextColor3=self.Accent,TextSize=11,Font=FontMain,
+        TextXAlignment=Enum.TextXAlignment.Left,
+    }, frame)
+    Make("Frame",{
+        Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-2),
+        BackgroundColor3=Theme.Border,BorderSizePixel=0,
+    }, frame)
+    return self:_AddElement(tabName,{Type="Section",Instance=frame})
+end
+
+function CentingUI:AddSeparator(tabName)
+    local tab = self.Tabs[tabName]
+    if not tab then return nil end
+    local line = Make("Frame",{Size=UDim2.new(1,0,0,1),BackgroundColor3=Theme.Border,BorderSizePixel=0}, tab.Container)
+    return self:_AddElement(tabName,{Type="Separator",Instance=line})
+end
+
+function CentingUI:AddToggle(tabName, text, default, callback)
+    local tab = self.Tabs[tabName]
+    if not tab then return nil end
+    default = default or false
+    local state = default
+
+    local frame = Make("Frame",{Size=UDim2.new(1,0,0,38),BackgroundColor3=Theme.BgElement,BorderSizePixel=0}, tab.Container)
+    AddCorner(frame, 8)
+
+    Make("TextLabel",{
+        Size=UDim2.new(1,-60,1,0),Position=UDim2.new(0,14,0,0),
+        BackgroundTransparency=1,Text=text or "Toggle",
+        TextColor3=Theme.TextMain,TextSize=12,Font=FontMain,
+        TextXAlignment=Enum.TextXAlignment.Left,
+    }, frame)
+
+    local track = Make("Frame",{
+        Size=UDim2.new(0,42,0,22),Position=UDim2.new(1,-54,0.5,-11),
+        BackgroundColor3=state and self.Accent or Theme.ToggleOff,BorderSizePixel=0,
+    }, frame)
+    AddCorner(track, 11)
+
+    local circle = Make("Frame",{
+        Size=UDim2.new(0,16,0,16),
+        Position=state and UDim2.new(1,-19,0.5,-8) or UDim2.new(0,3,0.5,-8),
+        BackgroundColor3=Theme.White,BorderSizePixel=0,
+    }, track)
+    AddCorner(circle, 8)
+
+    local btn = Make("TextButton",{Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,Text="",ZIndex=10}, frame)
+
+    local function SetState(v)
+        state = v
+        QT(track,{BackgroundColor3=v and self.Accent or Theme.ToggleOff},0.25):Play()
+        QT(circle,{Position=v and UDim2.new(1,-19,0.5,-8) or UDim2.new(0,3,0.5,-8)},0.3,Enum.EasingStyle.Back):Play()
+        if callback then callback(v) end
+    end
+
+    btn.MouseButton1Click:Connect(function() SetState(not state) end)
+
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType==Enum.UserInputType.MouseMovement then QT(frame,{BackgroundColor3=Theme.BgSurface},0.15):Play() end
+    end)
+    frame.InputEnded:Connect(function(input)
+        if input.UserInputType==Enum.UserInputType.MouseMovement then QT(frame,{BackgroundColor3=Theme.BgElement},0.15):Play() end
+    end)
+
+    return self:_AddElement(tabName,{Type="Toggle",Instance=frame,Set=SetState,Get=function() return state end})
+end
+
+function CentingUI:AddButton(tabName, text, callback)
+    local tab = self.Tabs[tabName]
+    if not tab then return nil end
+
+    local btn = Make("TextButton",{
+        Size=UDim2.new(1,0,0,36),BackgroundColor3=Theme.BtnIdle,BorderSizePixel=0,
+        Text=text or "Button",TextColor3=Theme.TextMain,TextSize=12,Font=FontMain,
+        AutoButtonColor=false,
+    }, tab.Container)
+    AddCorner(btn, 8)
+
+    btn.MouseEnter:Connect(function() QT(btn,{BackgroundColor3=Theme.BtnHover},0.15):Play() end)
+    btn.MouseLeave:Connect(function() QT(btn,{BackgroundColor3=Theme.BtnIdle},0.15):Play() end)
+    btn.MouseButton1Click:Connect(function()
+        QT(btn,{BackgroundColor3=self.Accent,TextColor3=Color3.fromRGB(8,8,14)},0.1):Play()
+        task.delay(0.15, function() QT(btn,{BackgroundColor3=Theme.BtnIdle,TextColor3=Theme.TextMain},0.25):Play() end)
+        if callback then callback() end
+    end)
+
+    return self:_AddElement(tabName,{Type="Button",Instance=btn})
+end
+
+function CentingUI:AddSlider(tabName, text, min, max, default, callback, suffix)
+    local tab = self.Tabs[tabName]
+    if not tab then return nil end
+    min, max, default = min or 0, max or 100, default or 0
+    suffix = suffix or ""
+    local value = default
+
+    local frame = Make("Frame",{Size=UDim2.new(1,0,0,58),BackgroundColor3=Theme.BgElement,BorderSizePixel=0}, tab.Container)
+    AddCorner(frame, 8)
+
+    Make("TextLabel",{
+        Size=UDim2.new(0.65,0,0,20),Position=UDim2.new(0,14,0,6),
+        BackgroundTransparency=1,Text=text or "Slider",
+        TextColor3=Theme.TextMain,TextSize=12,Font=FontMain,TextXAlignment=Enum.TextXAlignment.Left,
+    }, frame)
+
+    local valLabel = Make("TextLabel",{
+        Size=UDim2.new(0.3,0,0,20),Position=UDim2.new(1,-48,0,6),
+        BackgroundTransparency=1,Text=tostring(default)..suffix,
+        TextColor3=self.Accent,TextSize=12,Font=FontCode,TextXAlignment=Enum.TextXAlignment.Right,
+    }, frame)
+
+    local track = Make("Frame",{
+        Size=UDim2.new(1,-28,0,6),Position=UDim2.new(0,14,0,36),
+        BackgroundColor3=Theme.SliderTrack,BorderSizePixel=0,
+    }, frame)
+    AddCorner(track, 3)
+
+    local fillPercent = (default-min)/(max-min)
+    local fill = Make("Frame",{Size=UDim2.new(fillPercent,0,1,0),BackgroundColor3=self.Accent,BorderSizePixel=0}, track)
+    AddCorner(fill, 3)
+
+    local knob = Make("Frame",{
+        Size=UDim2.new(0,14,0,14),Position=UDim2.new(fillPercent,-7,0.5,-7),
+        BackgroundColor3=Theme.White,BorderSizePixel=0,ZIndex=5,
+    }, track)
+    AddCorner(knob, 7)
+
+    local hitArea = Make("TextButton",{Size=UDim2.new(1,0,0,22),Position=UDim2.new(0,0,0,28),BackgroundTransparency=1,Text="",ZIndex=10}, frame)
+    local sliding = false
+
+    local function update(input)
+        local relX = math.clamp((input.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
+        value = math.floor(min + (max-min)*relX + 0.5)
+        fillPercent = (value-min)/(max-min)
+        fill.Size = UDim2.new(fillPercent,0,1,0)
+        knob.Position = UDim2.new(fillPercent,-7,0.5,-7)
+        valLabel.Text = tostring(value)..suffix
+        if callback then callback(value) end
+    end
+
+    hitArea.MouseButton1Down:Connect(function(input) sliding=true; update(input) end)
+    UserInputService.InputChanged:Connect(function(input)
+        if sliding and (input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch) then update(input) end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then sliding=false end
+    end)
+
+    return self:_AddElement(tabName,{Type="Slider",Instance=frame,SetValue=function(v)
+        value=v; fillPercent=(v-min)/(max-min)
+        fill.Size=UDim2.new(fillPercent,0,1,0); knob.Position=UDim2.new(fillPercent,-7,0.5,-7)
+        valLabel.Text=tostring(v)..suffix
+    end, GetValue=function() return value end})
+end
+
+function CentingUI:AddTextbox(tabName, text, placeholder, callback)
+    local tab = self.Tabs[tabName]
+    if not tab then return nil end
+
+    local frame = Make("Frame",{Size=UDim2.new(1,0,0,54),BackgroundColor3=Theme.BgElement,BorderSizePixel=0}, tab.Container)
+    AddCorner(frame, 8)
+
+    Make("TextLabel",{
+        Size=UDim2.new(1,-14,0,20),Position=UDim2.new(0,14,0,5),
+        BackgroundTransparency=1,Text=text or "Textbox",
+        TextColor3=Theme.TextMain,TextSize=12,Font=FontMain,TextXAlignment=Enum.TextXAlignment.Left,
+    }, frame)
+
+    local box = Make("TextBox",{
+        Size=UDim2.new(1,-28,0,22),Position=UDim2.new(0,14,0,26),
+        BackgroundColor3=Theme.BgInput,BorderSizePixel=0,
+        Text="",PlaceholderText=placeholder or "Type here...",
+        PlaceholderColor3=Theme.TextDim,TextColor3=Theme.TextMain,
+        TextSize=11,Font=FontCode,TextXAlignment=Enum.TextXAlignment.Left,ClearTextOnFocus=false,
+    }, frame)
+    AddCorner(box, 5)
+    Make("UIPadding",{PaddingLeft=UDim.new(0,8)}, box)
+
+    box.Focused:Connect(function() QT(box,{BackgroundColor3=Color3.fromRGB(20,20,32)},0.15):Play() end)
+    box.FocusLost:Connect(function() QT(box,{BackgroundColor3=Theme.BgInput},0.15):Play(); if callback then callback(box.Text) end end)
+
+    return self:_AddElement(tabName,{Type="Textbox",Instance=frame,GetText=function() return box.Text end,SetText=function(t) box.Text=t end})
+end
+
+function CentingUI:AddDropdown(tabName, text, options, default, callback)
+    local tab = self.Tabs[tabName]
+    if not tab then return nil end
+    default = default or (options and options[1]) or "None"
+    local selected = default
+    local isOpen = false
+
+    local frame = Make("Frame",{Size=UDim2.new(1,0,0,38),BackgroundColor3=Theme.BgElement,BorderSizePixel=0,ClipsDescendants=false}, tab.Container)
+    AddCorner(frame, 8)
+
+    Make("TextLabel",{
+        Size=UDim2.new(0.45,0,1,0),Position=UDim2.new(0,14,0,0),
+        BackgroundTransparency=1,Text=text or "Dropdown",
+        TextColor3=Theme.TextMain,TextSize=12,Font=FontMain,TextXAlignment=Enum.TextXAlignment.Left,
+    }, frame)
+
+    local selLabel = Make("TextLabel",{
+        Size=UDim2.new(0.35,0,1,0),Position=UDim2.new(0.48,0,0,0),
+        BackgroundTransparency=1,Text=selected,
+        TextColor3=self.Accent,TextSize=11,Font=FontSub,TextXAlignment=Enum.TextXAlignment.Right,
+    }, frame)
+
+    local arrow = Make("TextLabel",{
+        Size=UDim2.new(0,20,1,0),Position=UDim2.new(1,-28,0,0),
+        BackgroundTransparency=1,Text="▾",TextColor3=Theme.TextDim,TextSize=12,Font=FontMain,
+    }, frame)
+
+    local btn = Make("TextButton",{Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,Text="",ZIndex=10}, frame)
+
+    local optFrame = Make("Frame",{
+        Size=UDim2.new(1,0,0,0),Position=UDim2.new(0,0,1,4),
+        BackgroundColor3=Theme.BgSurface,BorderSizePixel=0,
+        ClipsDescendants=true,Visible=false,ZIndex=25,
+    }, frame)
+    AddCorner(optFrame, 8)
+    AddStroke(optFrame, Theme.Border, 1)
+
+    local optLayout = Make("UIListLayout",{Padding=UDim.new(0,2),SortOrder=Enum.SortOrder.LayoutOrder}, optFrame)
+    Make("UIPadding",{PaddingTop=UDim.new(0,5),PaddingBottom=UDim.new(0,5),PaddingLeft=UDim.new(0,6),PaddingRight=UDim.new(0,6)}, optFrame)
+
+    local optBtns = {}
+    for i,opt in ipairs(options or {}) do
+        local ob = Make("TextButton",{
+            Size=UDim2.new(1,0,0,26),
+            BackgroundColor3=(opt==selected) and LerpColor(self.Accent,Theme.BgDark,0.7) or Theme.BtnIdle,
+            BorderSizePixel=0,Text=opt,
+            TextColor3=(opt==selected) and self.Accent or Theme.TextMain,
+            TextSize=11,Font=FontSub,AutoButtonColor=false,ZIndex=26,
+        }, optFrame)
+        AddCorner(ob, 5)
+        optBtns[opt] = ob
+
+        ob.MouseButton1Click:Connect(function()
+            selected=opt; selLabel.Text=opt; isOpen=false
+            for n,b in pairs(optBtns) do
+                local isSel=(n==selected)
+                QT(b,{BackgroundColor3=isSel and LerpColor(self.Accent,Theme.BgDark,0.7) or Theme.BtnIdle,TextColor3=isSel and self.Accent or Theme.TextMain},0.15):Play()
+            end
+            QT(optFrame,{Size=UDim2.new(1,0,0,0)},0.2):Play()
+            QT(arrow,{Rotation=0},0.2):Play()
+            task.delay(0.2, function() optFrame.Visible=false end)
+            if callback then callback(opt) end
+        end)
+
+        ob.MouseEnter:Connect(function()
+            if opt~=selected then QT(ob,{BackgroundColor3=Theme.BtnHover},0.1):Play() end
+        end)
+        ob.MouseLeave:Connect(function()
+            if opt~=selected then QT(ob,{BackgroundColor3=Theme.BtnIdle},0.1):Play() end
+        end)
+    end
+
+    btn.MouseButton1Click:Connect(function()
+        isOpen=not isOpen
+        if isOpen then
+            optFrame.Visible=true; optFrame.Size=UDim2.new(1,0,0,0)
+            local h=optLayout.AbsoluteContentSize.Y+10
+            QT(optFrame,{Size=UDim2.new(1,0,0,h)},0.3,Enum.EasingStyle.Quint):Play()
+            QT(arrow,{Rotation=180},0.25):Play()
+        else
+            QT(optFrame,{Size=UDim2.new(1,0,0,0)},0.2):Play()
+            QT(arrow,{Rotation=0},0.2):Play()
+            task.delay(0.2, function() optFrame.Visible=false end)
+        end
+    end)
+
+    return self:_AddElement(tabName,{Type="Dropdown",Instance=frame,GetValue=function() return selected end})
+end
+
+function CentingUI:AddKeybind(tabName, text, defaultKey, callback)
+    local tab = self.Tabs[tabName]
+    if not tab then return nil end
+    local boundKey = defaultKey or Enum.KeyCode.None
+    local listening = false
+
+    local frame = Make("Frame",{Size=UDim2.new(1,0,0,38),BackgroundColor3=Theme.BgElement,BorderSizePixel=0}, tab.Container)
+    AddCorner(frame, 8)
+
+    Make("TextLabel",{
+        Size=UDim2.new(0.6,0,1,0),Position=UDim2.new(0,14,0,0),
+        BackgroundTransparency=1,Text=text or "Keybind",
+        TextColor3=Theme.TextMain,TextSize=12,Font=FontMain,TextXAlignment=Enum.TextXAlignment.Left,
+    }, frame)
+
+    local keyBox = Make("Frame",{
+        Size=UDim2.new(0,76,0,24),Position=UDim2.new(1,-88,0.5,-12),
+        BackgroundColor3=Theme.BgInput,BorderSizePixel=0,
+    }, frame)
+    AddCorner(keyBox, 5)
+
+    local keyLabel = Make("TextLabel",{
+        Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,
+        Text=boundKey.Name=="None" and "[ ... ]" or "[ "..boundKey.Name.." ]",
+        TextColor3=self.Accent,TextSize=10,Font=FontCode,
+    }, keyBox)
+
+    local btn = Make("TextButton",{Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,Text="",ZIndex=10}, frame)
+    btn.MouseButton1Click:Connect(function()
+        listening=true; keyLabel.Text="[ ... ]"; keyLabel.TextColor3=Theme.Error
+    end)
+
+    UserInputService.InputBegan:Connect(function(input, processed)
+        if processed then return end
+        if listening and input.UserInputType==Enum.UserInputType.Keyboard then
+            boundKey=input.KeyCode
+            keyLabel.Text="[ "..boundKey.Name.." ]"
+            keyLabel.TextColor3=self.Accent
+            listening=false
+            if callback then callback(boundKey) end
+        end
+    end)
+
+    return self:_AddElement(tabName,{Type="Keybind",Instance=frame,GetKey=function() return boundKey end})
+end
+
+function CentingUI:AddCheckbox(tabName, text, default, callback)
+    local tab = self.Tabs[tabName]
+    if not tab then return nil end
+    default = default or false
+    local state = default
+
+    local frame = Make("Frame",{Size=UDim2.new(1,0,0,32),BackgroundColor3=Theme.BgElement,BorderSizePixel=0}, tab.Container)
+    AddCorner(frame, 8)
+
+    local box = Make("Frame",{
+        Size=UDim2.new(0,18,0,18),Position=UDim2.new(0,12,0.5,-9),
+        BackgroundColor3=state and self.Accent or Theme.ToggleOff,BorderSizePixel=0,
+    }, frame)
+    AddCorner(box, 4)
+
+    local check = Make("TextLabel",{
+        Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,
+        Text="✓",TextColor3=Theme.White,TextSize=12,Font=FontMain,
+        TextTransparency=state and 0 or 1,
+    }, box)
+
+    Make("TextLabel",{
+        Size=UDim2.new(1,-42,1,0),Position=UDim2.new(0,38,0,0),
+        BackgroundTransparency=1,Text=text or "Checkbox",
+        TextColor3=Theme.TextMain,TextSize=12,Font=FontMain,TextXAlignment=Enum.TextXAlignment.Left,
+    }, frame)
+
+    local btn = Make("TextButton",{Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,Text="",ZIndex=10}, frame)
+    btn.MouseButton1Click:Connect(function()
+        state=not state
+        QT(box,{BackgroundColor3=state and self.Accent or Theme.ToggleOff},0.2):Play()
+        QT(check,{TextTransparency=state and 0 or 1},0.2):Play()
+        if callback then callback(state) end
+    end)
+
+    return self:_AddElement(tabName,{Type="Checkbox",Instance=frame,Set=function(v)
+        state=v; box.BackgroundColor3=v and self.Accent or Theme.ToggleOff; check.TextTransparency=v and 0 or 1
+    end,Get=function() return state end})
+end
+
+-- NOTIFICATIONS
+function CentingUI:Notify(title, text, type)
+    type = type or "info"
+    local colors = {info=self.Accent, success=Theme.Success, warning=Theme.Warning, error=Theme.Error}
+    local ac = colors[type] or colors.info
+
+    local notif = Make("Frame",{
+        Size=UDim2.new(0,280,0,0),Position=UDim2.new(1,-290,1,-10),
+        BackgroundColor3=Theme.BgDark,BorderSizePixel=0,ZIndex=100,
+    }, self.Gui)
+    AddCorner(notif, 10)
+    AddStroke(notif, ac, 1)
+
+    Make("Frame",{
+        Size=UDim2.new(0,3,0.7,0),Position=UDim2.new(0,6,0.15,0),
+        BackgroundColor3=ac,BorderSizePixel=0,
+    }, notif)
+
+    Make("TextLabel",{
+        Size=UDim2.new(1,-24,0,18),Position=UDim2.new(0,18,0,8),
+        BackgroundTransparency=1,Text=title or "Notification",
+        TextColor3=ac,TextSize=12,Font=FontMain,TextXAlignment=Enum.TextXAlignment.Left,
+    }, notif)
+
+    Make("TextLabel",{
+        Size=UDim2.new(1,-24,0,14),Position=UDim2.new(0,18,0,28),
+        BackgroundTransparency=1,Text=text or "",
+        TextColor3=Theme.TextDim,TextSize=11,Font=FontSub,
+        TextXAlignment=Enum.TextXAlignment.Left,TextWrapped=true,
+    }, notif)
+
+    QT(notif,{Size=UDim2.new(0,280,0,52)},0.4,Enum.EasingStyle.Back):Play()
+
+    for _,n in ipairs(self.Notifications) do
+        local pos=n.Instance.Position
+        QT(n.Instance,{Position=UDim2.new(pos.X.Scale,pos.X.Offset,pos.Y.Scale,pos.Y.Offset-60)},0.3):Play()
+    end
+    table.insert(self.Notifications,{Instance=notif})
+
+    task.delay(3.5, function()
+        QT(notif,{BackgroundTransparency=1},0.3):Play()
+        QT(notif,{Size=UDim2.new(0,280,0,0)},0.3,Enum.EasingStyle.Quad,Enum.EasingDirection.In):Play()
+        task.delay(0.3, function()
+            notif:Destroy()
+            for i,n in ipairs(self.Notifications) do
+                if n.Instance==notif then table.remove(self.Notifications,i); break end
+            end
+        end)
+    end)
+    return notif
+end
+
+function CentingUI:Destroy()
+    if self.Blur then self.Blur:Destroy() end
+    if self.Gui then self.Gui:Destroy() end
+end
+
+return CentingUI
+
+-- Ito ang hinihingi ng _Build para mabuo yung UI
+-- Kopyahin mo ito at ilagay SA PINAKA-DULO ng library code
+CentingUI._BuildButtons = CentingUI._BuildButtons or function() end
+CentingUI._BuildTabBar = CentingUI._BuildTabBar or function() end
+CentingUI._BuildContent = CentingUI._BuildContent or function() end
+
+local Library = loadstring(game:HttpGet("YOUR_RAW_URL"))()
+
+local Window = Library.new({
+    Name = "Centing UI",
+    Accent = Color3.fromRGB(0, 190, 255),
+})
+Window:SetToggleKey(Enum.KeyCode.RightShift)
+
+-- Tab: Combat
+Window:AddLabel("Combat", "— Combat Settings —")
+Window:AddToggle("Combat", "Auto Parry", false, function(v) print("Auto Parry:", v) end)
+Window:AddToggle("Combat", "Infinite Range", false, function(v) print("Range:", v) end)
+Window:AddSlider("Combat", "Attack Range", 1, 100, 15, function(v) print(v) end, " studs")
+Window:AddDropdown("Combat", "Target Mode", {"Nearest", "Lowest HP", "Farthest"}, "Nearest", function(v) print(v) end)
+Window:AddKeybind("Combat", "Combat Key", Enum.KeyCode.F, function(k) print(k.Name) end)
+
+-- Tab: Movement
+Window:AddSection("Movement", "Speed & Jump")
+Window:AddToggle("Movement", "Speed Hack", false, function(v) print("Speed:", v) end)
+Window:AddSlider("Movement", "Walk Speed", 16, 500, 16, function(v) print(v) end)
+Window:AddToggle("Movement", "Jump Hack", false, function(v) print("Jump:", v) end)
+Window:AddSlider("Movement", "Jump Power", 50, 500, 50, function(v) print(v) end)
+Window:AddSeparator("Movement")
+Window:AddToggle("Movement", "Fly", false, function(v) print("Fly:", v) end)
+Window:AddKeybind("Movement", "Fly Toggle", Enum.KeyCode.G, function(k) print(k.Name) end)
+
+-- Tab: Visuals
+Window:AddSection("Visuals", "ESP Settings")
+Window:AddToggle("Visuals", "ESP Enabled", false, function(v) print("ESP:", v) end)
+Window:AddToggle("Visuals", "Show Distance", true, function(v) print(v) end)
+Window:AddCheckbox("Visuals", "Show Health Bar", true, function(v) print(v) end)
+Window:AddSeparator("Visuals")
+Window:AddToggle("Visuals", "Fullbright", false, function(v) print("FB:", v) end)
+Window:AddDropdown("Visuals", "Time of Day", {"Day", "Night", "Sunset"}, "Day", function(v) print(v) end)
+
+-- Tab: Misc
+Window:AddTextbox("Misc", "Player Name", "Enter name...", function(t) print(t) end)
+Window:AddButton("Misc", "Copy UserID", function()
+    print(game.Players.LocalPlayer.UserId)
+    Window:Notify("Copied", "UserID copied!", "success")
+end)
+Window:AddSeparator("Misc")
+Window:AddButton("Misc", "Rejoin", function()
+    game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, game.Players.LocalPlayer)
+end)
+
+task.delay(1, function()
+    Window:Notify("Centing UI", "Loaded successfully!", "success")
+end)
